@@ -1,0 +1,1942 @@
+<!--
+================================================================================
+  Nieoficjalny fanowski interaktywny odtwarzacz RadioParty.pl
+  Autor: CamaroS45
+  Wszelkie prawa zastrzeżone. Kopiowanie, modyfikowanie oraz ponowna publikacja
+  kodu źródłowego bez zgody autora są zabronione.
+================================================================================
+-->
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📻</text></svg>">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RadioParty.pl — Kanał Główny</title>
+    <!-- Ładowanie Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Ładowanie czcionki Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0e2a22;
+            color: #ecfdf5;
+            overflow-x: hidden;
+        }
+
+        /* Jaśniejsze, ujednolicone tło szmaragdowe */
+        .emerald-warm-bg {
+            background:
+                radial-gradient(circle at 20% 15%, rgba(16, 185, 129, 0.34) 0%, transparent 48%),
+                radial-gradient(circle at 85% 85%, rgba(52, 211, 153, 0.24) 0%, transparent 48%),
+                radial-gradient(circle at 50% 50%, #163d31 0%, #0d2720 100%);
+        }
+
+        /* Szklana karta w jaśniejszym, jednolitym odcieniu szmaragdu z wyraźnym cieniem odcinającym od tła */
+        .warm-emerald-card {
+            background: linear-gradient(145deg, rgba(22, 62, 50, 0.92) 0%, rgba(18, 52, 42, 0.96) 100%);
+            border: 1px solid rgba(52, 211, 153, 0.36);
+            box-shadow:
+                0 24px 48px -10px rgba(2, 12, 9, 0.88),
+                0 8px 20px -4px rgba(1, 8, 6, 0.78),
+                0 0 0 1px rgba(3, 18, 14, 0.75),
+                0 0 36px rgba(16, 185, 129, 0.14),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14);
+            backdrop-filter: blur(16px);
+        }
+
+        /* Stylizacja suwaków */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(52, 211, 153, 0.26);
+            height: 6px;
+            border-radius: 999px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--glow-hex, #10b981);
+            border: 2px solid #0d3b2e;
+            cursor: pointer;
+            box-shadow: 0 0 12px rgba(var(--glow-rgb, 16, 185, 129), 0.85);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            box-shadow: 0 0 16px rgba(var(--glow-rgb, 16, 185, 129), 1);
+        }
+
+        /* Płynne przygotowanie koła ON AIR oraz krawędzi okna pod reaktywny Glow */
+        #onAirCircle {
+            will-change: box-shadow, border-color;
+            transition: border-color 0.12s ease;
+        }
+        #playerCard {
+            will-change: box-shadow, border-color;
+            transition: border-color 0.12s ease;
+        }
+        #avatarRing {
+            will-change: opacity;
+        }
+        #shockwaveCanvas {
+            pointer-events: none;
+        }
+
+        /* Kafelki stacji przy lewej krawędzi karty (warstwa z-10 pod główną kartą z-20) */
+        .station-tile-slot {
+            perspective: 950px;
+            position: relative;
+        }
+        .station-tile {
+            background: linear-gradient(135deg, rgba(22, 62, 50, 0.90) 0%, rgba(18, 52, 42, 0.95) 100%);
+            border: 1px solid rgba(52, 211, 153, 0.34);
+            box-shadow:
+                0 12px 24px -6px rgba(2, 12, 9, 0.85),
+                0 4px 10px -2px rgba(1, 8, 6, 0.72),
+                0 0 0 1px rgba(3, 18, 14, 0.70),
+                inset 0 1px 0 rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(14px);
+            transform-style: preserve-3d;
+            backface-visibility: visible;
+            will-change: transform, opacity;
+            transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease, box-shadow 0.22s ease, background 0.2s ease, opacity 0.25s ease;
+        }
+        .station-tile:hover:not(.tile-tucked):not(.tile-animating) {
+            transform: scale(1.035);
+            border-color: rgba(52, 211, 153, 0.65);
+            box-shadow:
+                0 16px 32px -6px rgba(2, 12, 9, 0.9),
+                0 6px 14px -2px rgba(1, 8, 6, 0.78),
+                0 0 22px rgba(16, 185, 129, 0.28),
+                inset 0 1px 0 rgba(255, 255, 255, 0.16);
+        }
+        .station-tile.active-tile {
+            background: linear-gradient(135deg, rgba(26, 74, 60, 0.96) 0%, rgba(20, 60, 48, 0.98) 100%);
+            border-color: rgba(var(--glow-rgb, 16, 185, 129), 0.8);
+            box-shadow:
+                0 14px 28px -6px rgba(2, 12, 9, 0.88),
+                0 4px 12px -2px rgba(1, 8, 6, 0.75),
+                0 0 22px rgba(var(--glow-rgb, 16, 185, 129), 0.35),
+                inset 0 1px 0 rgba(255, 255, 255, 0.16);
+        }
+
+        /* Animacja szybkiego obrotu od dołu do góry wokół własnej osi X, a następnie wsunięcia pod główną kartę odtwarzacza */
+        @keyframes tileFlipAndTuckUnder {
+            0% {
+                transform: perspective(900px) rotateX(0deg) translateX(0px) scale(1);
+                opacity: 1;
+            }
+            42% {
+                transform: perspective(900px) rotateX(360deg) translateX(0px) scale(1.03);
+                opacity: 1;
+            }
+            65% {
+                transform: perspective(900px) rotateX(360deg) translateX(35px) scale(0.96);
+                opacity: 0.92;
+            }
+            100% {
+                transform: perspective(900px) rotateX(360deg) translateX(115%) scale(0.88);
+                opacity: 0;
+            }
+        }
+
+        /* Odwrócona animacja: wyjazd spod głównej karty i obrót powrotny z góry do dołu na swoje miejsce */
+        @keyframes tileEmergeAndReverseFlip {
+            0% {
+                transform: perspective(900px) rotateX(360deg) translateX(115%) scale(0.88);
+                opacity: 0;
+            }
+            38% {
+                transform: perspective(900px) rotateX(360deg) translateX(30px) scale(0.96);
+                opacity: 0.92;
+            }
+            60% {
+                transform: perspective(900px) rotateX(360deg) translateX(0px) scale(1.03);
+                opacity: 1;
+            }
+            100% {
+                transform: perspective(900px) rotateX(0deg) translateX(0px) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .station-tile.tile-tuck-anim {
+            animation: tileFlipAndTuckUnder 0.68s cubic-bezier(0.32, 0.05, 0.25, 1) forwards;
+            pointer-events: none;
+        }
+        .station-tile.tile-tucked {
+            transform: perspective(900px) rotateX(360deg) translateX(115%) scale(0.88);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .station-tile.tile-untuck-anim {
+            animation: tileEmergeAndReverseFlip 0.68s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            pointer-events: none;
+        }
+
+        /* Kafelki aktualności po prawej stronie: zachowują się jak kafelki stacji (hover scale + glow), bez obrotu i chowania */
+        .news-item-tile {
+            background: linear-gradient(135deg, rgba(22, 62, 50, 0.90) 0%, rgba(18, 52, 42, 0.95) 100%);
+            border: 1px solid rgba(52, 211, 153, 0.34);
+            box-shadow:
+                0 10px 20px -5px rgba(2, 12, 9, 0.84),
+                0 3px 8px -2px rgba(1, 8, 6, 0.70),
+                0 0 0 1px rgba(3, 18, 14, 0.68),
+                inset 0 1px 0 rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(14px);
+            will-change: transform;
+            transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease, box-shadow 0.22s ease, background 0.2s ease;
+        }
+        .news-item-tile:hover {
+            transform: scale(1.035);
+            background: linear-gradient(135deg, rgba(26, 74, 60, 0.96) 0%, rgba(20, 60, 48, 0.98) 100%);
+            border-color: rgba(52, 211, 153, 0.65);
+            box-shadow:
+                0 14px 28px -6px rgba(2, 12, 9, 0.9),
+                0 5px 12px -2px rgba(1, 8, 6, 0.78),
+                0 0 22px rgba(16, 185, 129, 0.28),
+                inset 0 1px 0 rgba(255, 255, 255, 0.16);
+        }
+
+        /* Subtelny pasek przewijania wewnątrz kafelka aktualności po prawej stronie */
+        .news-scroll::-webkit-scrollbar {
+            width: 5px;
+        }
+        .news-scroll::-webkit-scrollbar-track {
+            background: rgba(14, 42, 34, 0.55);
+            border-radius: 999px;
+        }
+        .news-scroll::-webkit-scrollbar-thumb {
+            background: rgba(52, 211, 153, 0.28);
+            border-radius: 999px;
+        }
+        .news-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(52, 211, 153, 0.5);
+        }
+
+        /* Wielofazowa animacja prawego kafelka aktualności:
+           1) zwinięcie wysokości do rozmiaru pojedynczego kafelka stacji
+           2) szybkie przesunięcie w dół
+           3) obrót 3D wokół własnej osi poziomej (rotateX)
+           4) wsunięcie w lewo pod środkową kartę odtwarzacza (z-20) */
+        #newsAsidePanel {
+            perspective: 950px;
+            overflow: visible;
+            transition: width 0.42s cubic-bezier(0.22, 1, 0.36, 1), margin-left 0.42s cubic-bezier(0.22, 1, 0.36, 1), min-height 0.35s ease;
+        }
+        #newsCardContainer {
+            transform-style: preserve-3d;
+            backface-visibility: visible;
+            will-change: transform, height, opacity;
+            overflow: hidden;
+        }
+        #newsCardContainer.news-tucked {
+            opacity: 0;
+            pointer-events: none;
+            transform: perspective(900px) translateY(390px) rotateX(360deg) translateX(-115%) scale(0.88);
+        }
+
+        /* Dolny kafelek "Czytaj" wyłaniający się spod dolnej krawędzi głównego panelu (warstwa z-10 pod główną kartą z-20)
+           z obrotem 3D z góry na dół i powrotem pod dolną krawędź karty */
+        #aboutDrawerSlot {
+            perspective: 950px;
+            transition: max-height 0.42s cubic-bezier(0.22, 1, 0.36, 1), margin-top 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+            max-height: 0px;
+            margin-top: 0px;
+            overflow: visible;
+        }
+        #aboutDrawerSlot.about-open {
+            max-height: 150px;
+            margin-top: 0.75rem;
+        }
+        #aboutDrawerSlot.about-above-shadow {
+            z-index: 30;
+        }
+        .about-info-tile {
+            background: linear-gradient(135deg, rgba(22, 62, 50, 0.98) 0%, rgba(18, 52, 42, 0.99) 100%);
+            border: 1px solid rgba(52, 211, 153, 0.36);
+            box-shadow:
+                0 14px 28px -6px rgba(2, 12, 9, 0.88),
+                0 4px 12px -2px rgba(1, 8, 6, 0.75),
+                0 0 0 1px rgba(3, 18, 14, 0.72),
+                0 0 22px rgba(16, 185, 129, 0.20),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14);
+            backdrop-filter: blur(14px);
+            transform-style: preserve-3d;
+            backface-visibility: visible;
+            will-change: transform, opacity;
+        }
+        @keyframes aboutTileEmergeTopToBottom {
+            0% {
+                transform: perspective(900px) translateY(-115%) rotateX(360deg) scale(0.88);
+                opacity: 0;
+            }
+            42% {
+                transform: perspective(900px) translateY(-18px) rotateX(360deg) scale(0.97);
+                opacity: 0.95;
+            }
+            68% {
+                transform: perspective(900px) translateY(0px) rotateX(140deg) scale(1.02);
+                opacity: 1;
+            }
+            100% {
+                transform: perspective(900px) translateY(0px) rotateX(0deg) scale(1);
+                opacity: 1;
+            }
+        }
+        @keyframes aboutTileTuckBottomToTop {
+            0% {
+                transform: perspective(900px) translateY(0px) rotateX(0deg) scale(1);
+                opacity: 1;
+            }
+            38% {
+                transform: perspective(900px) translateY(0px) rotateX(360deg) scale(1.02);
+                opacity: 1;
+            }
+            65% {
+                transform: perspective(900px) translateY(-22px) rotateX(360deg) scale(0.96);
+                opacity: 0.92;
+            }
+            100% {
+                transform: perspective(900px) translateY(-115%) rotateX(360deg) scale(0.88);
+                opacity: 0;
+            }
+        }
+        .about-info-tile.about-tucked {
+            transform: perspective(900px) translateY(-115%) rotateX(360deg) scale(0.88);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .about-info-tile.about-emerge-anim {
+            animation: aboutTileEmergeTopToBottom 0.68s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            pointer-events: none;
+        }
+        .about-info-tile.about-tuck-anim {
+            animation: aboutTileTuckBottomToTop 0.68s cubic-bezier(0.32, 0.05, 0.25, 1) forwards;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="emerald-warm-bg min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 selection:bg-emerald-400 selection:text-emerald-950">
+
+    <!-- Kontener główny: kafelki stacji po lewej | wyśrodkowana karta odtwarzacza + dolny kafelek "Czytaj" | duży kafelek aktualności po prawej -->
+    <div id="mainLayoutContainer" class="relative w-full max-w-md lg:max-w-[1300px] flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-4 lg:gap-5">
+        <aside aria-label="Wybór kanału RadioParty.pl"
+            class="relative z-10 w-full max-w-md lg:w-[370px] xl:w-[410px] flex flex-col justify-between gap-2.5 lg:py-1 order-2 lg:order-1">
+            <div id="stationsTilesContainer" class="flex-1 flex flex-col justify-between gap-2.5">
+                <!-- Kafelki stacji generowane dynamicznie przez JavaScript -->
+            </div>
+        </aside>
+
+        <!-- Środkowa kolumna: główna karta odtwarzacza (z-20) + wyłaniający się spod spodu kafelek "Czytaj" (z-10) -->
+        <div class="w-full max-w-md shrink-0 flex flex-col items-center order-1 lg:order-2 relative">
+            <!-- Główna karta odtwarzacza (warstwa z-20 na wierzchu, aby kafelki wsuwały się pod nią) -->
+            <main id="playerCard" class="warm-emerald-card w-full rounded-3xl px-6 pt-6 pb-3.5 sm:px-8 sm:pt-8 sm:pb-4 relative z-20 overflow-hidden">
+                
+                <!-- Subtelna ciepła poświata u góry karty -->
+                <div class="absolute -top-24 left-1/2 -translate-x-1/2 w-64 h-48 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="absolute -bottom-24 right-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                <!-- Górny pasek statusu stacji -->
+                <div class="flex items-center justify-between mb-6 relative z-10">
+                    <div class="flex items-center gap-2.5 bg-emerald-900/75 border border-emerald-400/35 px-3.5 py-1.5 rounded-full">
+                        <span id="liveDot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 transition-colors duration-300"></span>
+                        <span id="statusBadge" class="text-xs font-semibold tracking-wider uppercase text-emerald-200">Gotowy do odbioru</span>
+                    </div>
+                    <span id="channelCounterBadge" class="text-xs font-medium text-sky-300/90 bg-sky-500/15 border border-sky-400/35 px-3 py-1 rounded-full shadow-[0_0_12px_rgba(56,189,248,0.18)]">
+                        1 / 6 • LIVE
+                    </span>
+                </div>
+
+                <!-- Sekcja centralna: Logo stacji i reaktywny na bass Glow wokół koła -->
+                <div class="flex flex-col items-center text-center my-8 relative z-10">
+                    <div class="relative mb-6">
+                        <!-- Ciepła aura wokół ikony radia reagująca na niskie częstotliwości -->
+                        <div id="avatarRing" class="absolute -inset-2 rounded-full blur-xl opacity-0" style="background: radial-gradient(circle, rgba(16, 185, 129, 0.65) 0%, transparent 72%);"></div>
+                        
+                        <div id="onAirCircle" class="relative w-32 h-32 rounded-full bg-gradient-to-b from-[#1a4c3d] to-[#13382c] border-2 border-emerald-400/55 flex flex-col items-center justify-center shadow-inner">
+                            <!-- Biała ikona fali radiowej -->
+                            <svg class="w-12 h-12 text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.65)]" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                            </svg>
+                        </div>
+                    </div>
+
+                    <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+                        RadioParty<span class="text-emerald-400">.pl</span>
+                    </h1>
+
+                    <p id="channelTitleText" class="text-sm sm:text-base font-medium text-emerald-100 mt-1.5 select-none">
+                        Kanał Główny — Muzyka Klubowa 24/7
+                    </p>
+
+                    <p id="statusDescription" class="text-xs text-emerald-200/75 mt-2 max-w-xs">
+                        Kliknij wybrany kafelek stacji po lewej stronie, aby rozpocząć odbiór.
+                    </p>
+                </div>
+
+                <!-- Główny przycisk sterowania: tylko PAUZA / WZNÓW z falą uderzeniową 3D pod spodem -->
+                <div class="relative mt-6 flex items-center justify-center z-10">
+                    <!-- Canvas fali uderzeniowej 3D -->
+                    <canvas id="shockwaveCanvas" class="absolute inset-0 w-full h-full pointer-events-none z-0"></canvas>
+
+                    <button id="togglePlayBtn" type="button"
+                        class="relative z-10 w-full max-w-[230px] py-3.5 px-6 rounded-2xl bg-gradient-to-br from-[#174a3b] to-[#11392d] hover:from-[#1d5c49] hover:to-[#164738] active:scale-[0.98] text-emerald-100 border border-emerald-400/50 font-bold text-sm sm:text-base tracking-wide uppercase shadow-[0_8px_25px_rgba(16,185,129,0.28)] transition-all duration-200 flex items-center justify-center gap-2.5 cursor-pointer">
+                        <!-- Ikona pauzy -->
+                        <svg id="pauseBarsIcon" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z"/>
+                        </svg>
+                        <!-- Ikona wznowienia -->
+                        <svg id="playTriangleIcon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/>
+                        </svg>
+                        <span id="togglePlayLabel">Pauza</span>
+                    </button>
+                </div>
+
+                <!-- Kontrola głośności -->
+                <div class="mt-6 pt-5 border-t border-emerald-500/15 flex items-center gap-3.5 relative z-10">
+                    <button id="muteBtn" type="button" class="text-emerald-300/80 hover:text-amber-300 transition p-1.5 rounded-lg hover:bg-emerald-900/40 cursor-pointer" title="Wycisz / Odcisz">
+                        <svg id="volHighIcon" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        </svg>
+                        <svg id="volMuteIcon" class="w-5 h-5 hidden text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                        </svg>
+                    </button>
+                    
+                    <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.85" class="w-full cursor-pointer" aria-label="Głośność">
+                    
+                    <span id="volumePercent" class="text-xs font-semibold text-emerald-300/80 w-10 text-right tabular-nums">85%</span>
+                </div>
+
+                <!-- Regulacja intensywności oraz koloru Glow -->
+                <div class="mt-4 pt-4 border-t border-emerald-500/15 space-y-3.5 relative z-10">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <div>
+                            <div class="flex justify-between items-center text-[11px] text-emerald-200/75 mb-1.5">
+                                <span>Glow koła (moc)</span>
+                                <span id="circleGlowPercent" class="font-semibold text-emerald-300 tabular-nums">75%</span>
+                            </div>
+                            <input type="range" id="circleGlowSlider" min="0" max="1.6" step="0.05" value="0.75" class="w-full cursor-pointer" aria-label="Glow koła">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-center text-[11px] text-emerald-200/75 mb-1.5">
+                                <span>Glow ramki (moc)</span>
+                                <span id="cardGlowPercent" class="font-semibold text-emerald-300 tabular-nums">75%</span>
+                            </div>
+                            <input type="range" id="cardGlowSlider" min="0" max="1.6" step="0.05" value="0.75" class="w-full cursor-pointer" aria-label="Glow krawędzi okna">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-center text-[11px] text-emerald-200/75 mb-1.5">
+                                <span>Wielkość Glow koła</span>
+                                <span id="circleGlowSizePercent" class="font-semibold text-emerald-300 tabular-nums">100%</span>
+                            </div>
+                            <input type="range" id="circleGlowSizeSlider" min="0.4" max="2.5" step="0.05" value="1" class="w-full cursor-pointer" aria-label="Wielkość Glow koła">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-center text-[11px] text-emerald-200/75 mb-1.5">
+                                <span>Wielkość Glow ramki</span>
+                                <span id="cardGlowSizePercent" class="font-semibold text-emerald-300 tabular-nums">100%</span>
+                            </div>
+                            <input type="range" id="cardGlowSizeSlider" min="0.4" max="2.5" step="0.05" value="1" class="w-full cursor-pointer" aria-label="Wielkość Glow krawędzi okna">
+                        </div>
+                    </div>
+
+                    <!-- Wybór koloru Glow oraz przyciski "Aktualności" i "Czytaj" -->
+                    <div class="flex flex-wrap items-start justify-between gap-2 pt-1">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-[11px] text-emerald-200/75 mr-1">Kolor:</span>
+                            <button type="button" data-glow-color="#10b981" class="glow-swatch w-5 h-5 rounded-full border-2 border-white shadow-[0_0_8px_#10b981] cursor-pointer transition-transform hover:scale-110" style="background:#10b981;" title="Szmaragdowy"></button>
+                            <button type="button" data-glow-color="#f59e0b" class="glow-swatch w-5 h-5 rounded-full border border-white/30 cursor-pointer transition-transform hover:scale-110" style="background:#f59e0b;" title="Ciepły bursztyn"></button>
+                            <button type="button" data-glow-color="#06b6d4" class="glow-swatch w-5 h-5 rounded-full border border-white/30 cursor-pointer transition-transform hover:scale-110" style="background:#06b6d4;" title="Cyjan"></button>
+                            <button type="button" data-glow-color="#a855f7" class="glow-swatch w-5 h-5 rounded-full border border-white/30 cursor-pointer transition-transform hover:scale-110" style="background:#a855f7;" title="Fiolet"></button>
+                            <button type="button" data-glow-color="#ffffff" class="glow-swatch w-5 h-5 rounded-full border border-white/30 cursor-pointer transition-transform hover:scale-110" style="background:#ffffff;" title="Biały"></button>
+                            <label class="relative w-5 h-5 rounded-full border border-white/40 overflow-hidden cursor-pointer flex items-center justify-center bg-gradient-to-tr from-emerald-400 via-amber-300 to-purple-500 hover:scale-110 transition-transform" title="Własny kolor">
+                                <input type="color" id="glowColorPicker" value="#10b981" class="opacity-0 absolute inset-0 w-full h-full cursor-pointer">
+                            </label>
+                        </div>
+
+                        <!-- Kolumna przycisków po prawej: "Aktualności" oraz bezpośrednio pod nim "Czytaj" -->
+                        <div class="flex flex-col items-end gap-1.5">
+                            <button id="toggleNewsPanelBtn" type="button" title="Pokaż lub schowaj aktualności"
+                                class="h-5 px-2.5 rounded-full bg-emerald-900/85 hover:bg-emerald-800/85 border border-emerald-400/50 text-[10px] font-semibold leading-none tracking-wide uppercase text-emerald-100 hover:text-white shadow-[0_0_10px_rgba(16,185,129,0.22)] transition-all flex items-center justify-center gap-1 cursor-pointer">
+                                <span id="toggleNewsBtnDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                <span>Aktualności</span>
+                            </button>
+
+                            <button id="toggleAboutTileBtn" type="button" title="Informacje o odtwarzaczu"
+                                class="h-5 px-2.5 rounded-full bg-emerald-900/85 hover:bg-emerald-800/85 border border-emerald-400/50 text-[10px] font-semibold leading-none tracking-wide uppercase text-emerald-100 hover:text-white shadow-[0_0_10px_rgba(16,185,129,0.22)] transition-all flex items-center justify-center gap-1 cursor-pointer">
+                                <span id="toggleAboutBtnDot" class="w-1.5 h-1.5 rounded-full bg-sky-400/90"></span>
+                                <span>Czytaj</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stopka przesunięta nisko przy dolnej krawędzi wewnętrznej ramki panelu -->
+                <div class="mt-7 pt-1 text-center relative z-10">
+                    <a id="officialChannelLink" href="https://radioparty.pl/kanalglowny" target="_blank" rel="noopener noreferrer"
+                       class="inline-flex items-center gap-1.5 text-[11px] text-emerald-200/70 hover:text-emerald-200 transition">
+                        <span id="officialChannelText">Oficjalna strona: radioparty.pl/kanalglowny</span>
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                    </a>
+                </div>
+            </main>
+
+            <!-- Dolny kafelek "Czytaj" wyłaniający się spod dolnej krawędzi głównego panelu (z-10) -->
+            <div id="aboutDrawerSlot" class="w-full relative z-10">
+                <div id="aboutInfoTile" class="about-info-tile about-tucked w-full rounded-2xl px-4 py-3 text-left flex items-center justify-between gap-3">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-start gap-2">
+                            <span class="w-2 h-2 rounded-full shrink-0 mt-1.5 bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+                            <span id="aboutMainTitleText" class="font-bold text-xs sm:text-sm text-white leading-snug block">Nieoficjalny fanowski interaktywny odtwarzacz RadioParty.pl</span>
+                        </div>
+                        <div class="mt-1.5 pl-4 text-xs font-medium text-sky-300/95">
+                            Autor: <span class="font-bold text-emerald-200">CamaroS45</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Duży kafelek z aktualnościami RadioParty.pl po prawej stronie -->
+        <aside id="newsAsidePanel" aria-label="Aktualności RadioParty.pl"
+            class="relative z-10 w-full max-w-md lg:w-[370px] xl:w-[410px] flex flex-col order-3">
+            <div id="newsCardContainer" class="warm-emerald-card rounded-3xl p-5 sm:p-6 flex-1 flex flex-col justify-between relative overflow-hidden">
+                <div class="absolute -top-20 -right-16 w-52 h-40 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+                <!-- Nagłówek aktualności z przyciskiem zwijania oraz ręcznego odświeżania -->
+                <div class="flex items-center justify-between gap-2 pb-3.5 border-b border-emerald-500/15 relative z-10">
+                    <div class="flex items-center gap-2.5">
+                        <span id="newsSyncDot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+                        <div>
+                            <h2 class="text-sm sm:text-base font-bold text-white tracking-tight">Aktualności RadioParty</h2>
+                            <p id="newsSyncStatus" style="font-size: 16px; color: #7dd3fc;" class="font-bold tracking-tight leading-snug mt-0.5">Auto-aktualizacja co 5 min</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-1.5">
+                        <button id="refreshNewsBtn" type="button" title="Sprawdź teraz nowe wpisy"
+                            class="px-2.5 py-1.5 rounded-xl bg-emerald-900/80 hover:bg-emerald-800/80 border border-emerald-400/35 text-emerald-100 text-xs font-medium flex items-center gap-1.5 transition cursor-pointer">
+                            <svg id="refreshNewsIcon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            <span>Odśwież</span>
+                        </button>
+
+                        <button id="collapseNewsBtn" type="button" title="Zwiń i schowaj aktualności"
+                            class="p-1.5 rounded-xl bg-emerald-900/80 hover:bg-emerald-800/80 border border-emerald-400/35 text-emerald-200 hover:text-white transition cursor-pointer">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Lista wpisów aktualności -->
+                <div id="newsListContainer" class="news-scroll my-3.5 pl-1.5 pr-[11px] -mr-[5px] py-1 flex-1 overflow-y-auto overflow-x-hidden max-h-[430px] lg:max-h-[470px] space-y-2.5 relative z-10">
+                    <!-- Wpisy generowane dynamicznie przez JS -->
+                </div>
+
+                <!-- Stopka kafelka aktualności -->
+                <div class="pt-3 border-t border-emerald-500/20 flex items-center justify-between text-[11px] text-emerald-200/75 relative z-10">
+                    <span id="newsLastUpdatedText">Źródło: radioparty.pl</span>
+                    <a href="https://radioparty.pl/news" target="_blank" rel="noopener noreferrer"
+                       class="inline-flex items-center gap-1 text-emerald-200 hover:text-white font-medium transition">
+                        <span>Zobacz wszystkie</span>
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- Ukryty odtwarzacz strumienia audio -->
+    <audio id="radioAudio" crossorigin="anonymous" preload="none"></audio>
+
+    <script>
+        // Czerwony komunikat ostrzegawczy w konsoli deweloperskiej przeglądarki (F12)
+        function showCopyrightConsoleWarning() {
+            console.warn(
+                "%c================================================================================\n" +
+                "  Nieoficjalny fanowski interaktywny odtwarzacz RadioParty.pl\n" +
+                "  Autor: CamaroS45\n" +
+                "  Wszelkie prawa zastrzeżone. Kopiowanie, modyfikowanie oraz ponowna publikacja\n" +
+                "  kodu źródłowego bez zgody autora są zabronione.\n" +
+                "================================================================================",
+                "color: #ff2a2a; background: #2b0606; font-weight: bold; font-size: 14px; padding: 6px 10px; border-radius: 6px; line-height: 1.5;"
+            );
+        }
+        showCopyrightConsoleWarning();
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C'))) {
+                setTimeout(showCopyrightConsoleWarning, 300);
+            }
+        });
+
+        /**
+         * Pełna lista 6 aktywnych kanałów RadioParty.pl wraz ze wszystkimi dostępnymi informacjami
+         */
+        const RADIOPARTY_CHANNELS = [
+            {
+                name: "Kanał Główny",
+                subtitle: "Kanał Główny — Muzyka Klubowa 24/7",
+                genre: "Muzyka Klubowa 24/7",
+                bitrate: "128 kbps • MP3/AAC",
+                pageUrl: "https://radioparty.pl/kanalglowny",
+                streams: [
+                    "https://s2.radioparty.pl:8015/stream",
+                    "https://s2.radioparty.pl:8002/stream",
+                    "https://s2.radioparty.pl:8015/stream64aac",
+                    "http://s2.radioparty.pl:8015/stream"
+                ]
+            },
+            {
+                name: "House",
+                subtitle: "Kanał House — Deep, Tech & Future House",
+                genre: "Deep, Tech & Future House",
+                bitrate: "128 kbps • LIVE",
+                pageUrl: "https://radioparty.pl/house",
+                streams: [
+                    "https://s2.radioparty.pl:8015/house",
+                    "http://s2.radioparty.pl:8015/house"
+                ]
+            },
+            {
+                name: "Dj Mixes",
+                subtitle: "Kanał Dj Mixes — Sety Live & Rezydenci",
+                genre: "Sety Live & Rezydenci",
+                bitrate: "128 kbps • LIVE",
+                pageUrl: "https://radioparty.pl/djmixes",
+                streams: [
+                    "https://s2.radioparty.pl:8015/djmixes",
+                    "http://s2.radioparty.pl:8015/djmixes"
+                ]
+            },
+            {
+                name: "Energy 2000",
+                subtitle: "Kanał Energy 2000 — Klubowe Hity",
+                genre: "Klubowe Hity • Energy",
+                bitrate: "128 kbps • LIVE",
+                pageUrl: "https://radioparty.pl/energy2000",
+                streams: [
+                    "https://s2.radioparty.pl:8015/energy2000",
+                    "https://s2.radioparty.pl:8015/energy",
+                    "http://s2.radioparty.pl:8015/energy2000"
+                ]
+            },
+            {
+                name: "Trance",
+                subtitle: "Kanał Trance — Klasyka i Nowości Trance",
+                genre: "Klasyka i Nowości Trance",
+                bitrate: "128 kbps • LIVE",
+                pageUrl: "https://radioparty.pl/trance",
+                streams: [
+                    "https://s2.radioparty.pl:8015/trance",
+                    "http://s2.radioparty.pl:8015/trance"
+                ]
+            },
+            {
+                name: "Vocal Trance",
+                subtitle: "Kanał Vocal Trance — Melodic & Uplifting",
+                genre: "Melodic & Uplifting",
+                bitrate: "128 kbps • LIVE",
+                pageUrl: "https://radioparty.pl/vocaltrance",
+                streams: [
+                    "https://s2.radioparty.pl:8015/vocaltrance",
+                    "http://s2.radioparty.pl:8015/vocaltrance"
+                ]
+            }
+        ];
+
+        // Referencje do elementów interfejsu
+        const audio = document.getElementById('radioAudio');
+        const togglePlayBtn = document.getElementById('togglePlayBtn');
+        const playTriangleIcon = document.getElementById('playTriangleIcon');
+        const pauseBarsIcon = document.getElementById('pauseBarsIcon');
+        const togglePlayLabel = document.getElementById('togglePlayLabel');
+        const shockwaveCanvas = document.getElementById('shockwaveCanvas');
+        const shockwaveCtx = shockwaveCanvas.getContext('2d');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumePercent = document.getElementById('volumePercent');
+        const muteBtn = document.getElementById('muteBtn');
+        const volHighIcon = document.getElementById('volHighIcon');
+        const volMuteIcon = document.getElementById('volMuteIcon');
+
+        const stationsTilesContainer = document.getElementById('stationsTilesContainer');
+        const channelTitleText = document.getElementById('channelTitleText');
+        const channelCounterBadge = document.getElementById('channelCounterBadge');
+        const officialChannelLink = document.getElementById('officialChannelLink');
+        const officialChannelText = document.getElementById('officialChannelText');
+
+        const liveDot = document.getElementById('liveDot');
+        const statusBadge = document.getElementById('statusBadge');
+        const statusDescription = document.getElementById('statusDescription');
+        const avatarRing = document.getElementById('avatarRing');
+        const onAirCircle = document.getElementById('onAirCircle');
+        const playerCard = document.getElementById('playerCard');
+
+        const circleGlowSlider = document.getElementById('circleGlowSlider');
+        const circleGlowPercent = document.getElementById('circleGlowPercent');
+        const cardGlowSlider = document.getElementById('cardGlowSlider');
+        const cardGlowPercent = document.getElementById('cardGlowPercent');
+        const circleGlowSizeSlider = document.getElementById('circleGlowSizeSlider');
+        const circleGlowSizePercent = document.getElementById('circleGlowSizePercent');
+        const cardGlowSizeSlider = document.getElementById('cardGlowSizeSlider');
+        const cardGlowSizePercent = document.getElementById('cardGlowSizePercent');
+        const glowColorPicker = document.getElementById('glowColorPicker');
+        const glowSwatches = document.querySelectorAll('.glow-swatch');
+
+        // Elementy kafelka aktualności po prawej stronie
+        const newsAsidePanel = document.getElementById('newsAsidePanel');
+        const newsCardContainer = document.getElementById('newsCardContainer');
+        const toggleNewsPanelBtn = document.getElementById('toggleNewsPanelBtn');
+        const toggleNewsBtnDot = document.getElementById('toggleNewsBtnDot');
+        const collapseNewsBtn = document.getElementById('collapseNewsBtn');
+        const newsListContainer = document.getElementById('newsListContainer');
+        const newsSyncStatus = document.getElementById('newsSyncStatus');
+        const newsSyncDot = document.getElementById('newsSyncDot');
+        const newsLastUpdatedText = document.getElementById('newsLastUpdatedText');
+        const refreshNewsBtn = document.getElementById('refreshNewsBtn');
+        const refreshNewsIcon = document.getElementById('refreshNewsIcon');
+
+        // Elementy dolnego kafelka "Czytaj" wyłaniającego się spod dolnej krawędzi panelu
+        const toggleAboutTileBtn = document.getElementById('toggleAboutTileBtn');
+        const toggleAboutBtnDot = document.getElementById('toggleAboutBtnDot');
+        const aboutDrawerSlot = document.getElementById('aboutDrawerSlot');
+        const aboutInfoTile = document.getElementById('aboutInfoTile');
+
+        const STORAGE_KEY = 'radioparty_player_settings_v1';
+        const NEWS_CACHE_KEY = 'radioparty_news_cache_v1';
+
+        const DEFAULT_RADIOPARTY_NEWS = [
+            {
+                id: '1838',
+                date: '31.10.2026 • SOBOTA',
+                title: '31.10 - Halloween z RadioParty!',
+                excerpt: 'Zapraszamy na wspólną imprezę Halloweenową z RadioParty.pl! Zabierzcie ze sobą najlepsze przebrania i dobre humory! Bawmy się wspólnie!',
+                url: 'https://radioparty.pl/news/1838',
+                badge: 'NAJNOWSZE'
+            },
+            {
+                id: '1837',
+                date: '18.07.2026 • KANAŁ GŁÓWNY',
+                title: 'Świętujemy urodziny CaLi!',
+                excerpt: 'To nie będzie zwykła sobota... To będą urodziny naszej radiowej CaLi. Słyszymy się na antenie RadioParty.pl na kanale głównym.',
+                url: 'https://radioparty.pl/news/1837',
+                badge: ''
+            },
+            {
+                id: '1836',
+                date: '25.04.2026 • B-DAY PARTY',
+                title: "Osiemnaste urodziny Oxy9en'a!",
+                excerpt: 'Oxy9en świętuje w wielkim stylu — tylko na RadioParty.pl! Cały dzień gramy specjalne sety urodzinowe!',
+                url: 'https://radioparty.pl/news/1836',
+                badge: ''
+            },
+            {
+                id: '1835',
+                date: '04.04.2026 • SPECJALNY MEETING',
+                title: 'Wielkanoc z RadioParty!',
+                excerpt: 'Zapraszamy Was na wyjątkowy Wielkanocny Meeting na kanale głównym RadioParty.pl! Zaczynamy punktualnie o 09:00.',
+                url: 'https://radioparty.pl/news/1835',
+                badge: ''
+            }
+        ];
+
+        let currentNewsItems = [...DEFAULT_RADIOPARTY_NEWS];
+        let lastKnownTopNewsTitle = currentNewsItems[0]?.title || '';
+
+        function renderNewsItems(items) {
+            if (!newsListContainer) return;
+            newsListContainer.innerHTML = '';
+
+            items.forEach((item, index) => {
+                const articleLink = document.createElement('a');
+                articleLink.href = item.url || 'https://radioparty.pl/news';
+                articleLink.target = '_blank';
+                articleLink.rel = 'noopener noreferrer';
+                articleLink.className = 'news-item-tile block rounded-2xl p-3.5 cursor-pointer';
+
+                const isNewest = index === 0;
+                articleLink.innerHTML = `
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <span class="text-[10px] font-semibold uppercase tracking-wider text-sky-300/90">${item.date || 'AKTUALNOŚCI'}</span>
+                        ${isNewest ? '<span class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-200 border border-emerald-400/40">NAJNOWSZE</span>' : ''}
+                    </div>
+                    <h3 class="text-sm font-bold text-white leading-snug mb-1">${item.title}</h3>
+                    <p class="text-xs text-slate-300/80 leading-relaxed line-clamp-3">${item.excerpt}</p>
+                `;
+                newsListContainer.appendChild(articleLink);
+            });
+        }
+
+        function parseRadioPartyNewsHtml(htmlString) {
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlString, 'text/html');
+                const links = Array.from(doc.querySelectorAll('a[href*="/news/"]'));
+                const extracted = [];
+                const seenUrls = new Set();
+
+                for (const a of links) {
+                    const href = a.getAttribute('href') || '';
+                    const match = href.match(/\/news\/(\d+)/);
+                    if (!match) continue;
+                    const fullUrl = href.startsWith('http') ? href : `https://radioparty.pl${href.startsWith('/') ? '' : '/'}${href}`;
+                    if (seenUrls.has(fullUrl)) continue;
+
+                    const titleText = (a.textContent || '').trim();
+                    if (!titleText || titleText.length < 4) continue;
+                    seenUrls.add(fullUrl);
+
+                    const cardParent = a.closest('div, article, li') || a.parentElement;
+                    const rawBlockText = cardParent ? cardParent.textContent.replace(/\s+/g, ' ').trim() : '';
+                    const dateMatch = rawBlockText.match(/\b\d{2}\.\d{2}\.\d{4}\b/);
+                    const excerptClean = rawBlockText.replace(titleText, '').trim().slice(0, 175);
+
+                    extracted.push({
+                        id: match[1],
+                        date: dateMatch ? `${dateMatch[0]} • RADIOPARTY` : 'RADIOPARTY.PL',
+                        title: titleText,
+                        excerpt: excerptClean || 'Kliknij, aby przeczytać pełną treść wpisu na RadioParty.pl.',
+                        url: fullUrl
+                    });
+
+                    if (extracted.length >= 8) break;
+                }
+                return extracted;
+            } catch (_) {
+                return [];
+            }
+        }
+
+        async function fetchLatestRadioPartyNews(isManual = false) {
+            if (refreshNewsIcon) refreshNewsIcon.classList.add('animate-spin');
+            if (newsSyncStatus && isManual) newsSyncStatus.textContent = 'Sprawdzanie nowych wpisów...';
+
+            const proxyUrls = [
+                `https://api.allorigins.win/get?url=${encodeURIComponent('https://radioparty.pl/')}&_=${Date.now()}`,
+                `https://corsproxy.io/?${encodeURIComponent('https://radioparty.pl/')}`
+            ];
+
+            let fetchedItems = [];
+            for (const proxy of proxyUrls) {
+                try {
+                    const res = await fetch(proxy, { cache: 'no-store' });
+                    if (!res.ok) continue;
+                    const text = await res.text();
+                    let html = text;
+                    if (proxy.includes('allorigins')) {
+                        const json = JSON.parse(text);
+                        html = json.contents || '';
+                    }
+                    const parsed = parseRadioPartyNewsHtml(html);
+                    if (parsed.length > 0) {
+                        fetchedItems = parsed;
+                        break;
+                    }
+                } catch (_) {}
+            }
+
+            const nowTime = new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+
+            if (fetchedItems.length > 0) {
+                const hasNewEntry = lastKnownTopNewsTitle && fetchedItems[0].title !== lastKnownTopNewsTitle;
+                currentNewsItems = fetchedItems;
+                lastKnownTopNewsTitle = fetchedItems[0].title;
+                renderNewsItems(currentNewsItems);
+
+                try {
+                    localStorage.setItem(NEWS_CACHE_KEY, JSON.stringify({ items: currentNewsItems, updatedAt: Date.now() }));
+                } catch (_) {}
+
+                if (newsSyncStatus) {
+                    newsSyncStatus.textContent = hasNewEntry ? 'Dodano nowy wpis! • Auto-sync 5 min' : 'Aktualne • Auto-sync co 5 min';
+                }
+            } else if (newsSyncStatus) {
+                newsSyncStatus.textContent = 'Auto-aktualizacja co 5 min';
+            }
+
+            if (newsLastUpdatedText) {
+                newsLastUpdatedText.textContent = `Źródło: radioparty.pl (${nowTime})`;
+            }
+            if (refreshNewsIcon) {
+                setTimeout(() => refreshNewsIcon.classList.remove('animate-spin'), 350);
+            }
+        }
+
+        let isNewsTucked = false;
+        let isNewsAnimating = false;
+        let expandedNewsHeightPx = null;
+
+        function updateNewsToggleButtonAppearance() {
+            if (!toggleNewsPanelBtn || !toggleNewsBtnDot) return;
+            if (isNewsTucked) {
+                toggleNewsPanelBtn.classList.remove('bg-emerald-900/85', 'text-emerald-100', 'border-emerald-400/50');
+                toggleNewsPanelBtn.classList.add('bg-emerald-500/30', 'text-white', 'border-emerald-300/85', 'shadow-[0_0_14px_rgba(16,185,129,0.45)]');
+                toggleNewsBtnDot.className = 'w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse';
+            } else {
+                toggleNewsPanelBtn.classList.add('bg-emerald-900/85', 'text-emerald-100', 'border-emerald-400/50');
+                toggleNewsPanelBtn.classList.remove('bg-emerald-500/30', 'text-white', 'border-emerald-300/85', 'shadow-[0_0_14px_rgba(16,185,129,0.45)]');
+                toggleNewsBtnDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
+            }
+        }
+
+        function getSingleStationTileMetrics() {
+            const sampleTile = stationsTilesContainer ? stationsTilesContainer.querySelector('.station-tile') : null;
+            const tileHeight = sampleTile ? sampleTile.getBoundingClientRect().height : 74;
+            const totalPanelHeight = newsAsidePanel ? newsAsidePanel.getBoundingClientRect().height : 570;
+            const dropDistance = Math.max(240, totalPanelHeight - tileHeight);
+            return { tileHeight, totalPanelHeight, dropDistance };
+        }
+
+        /**
+         * Chowająca animacja kafelka aktualności:
+         * 1. Zwijanie wysokości do rozmiaru pojedynczego kafelka po lewej stronie
+         * 2. Szybkie przesunięcie w dół + obrót 3D wokół osi X + wsunięcie pod środkową kartę (prędkość dopasowana do kafelków stacji: 0.68s)
+         * 3. Po schowaniu kolumna aktualności płynnie zwęża się do 0, centrując obie pozostałe kolumny na środku ekranu
+         */
+        function hideNewsPanelWithAnimation() {
+            if (isNewsAnimating || isNewsTucked || !newsCardContainer) return;
+            isNewsAnimating = true;
+
+            const { tileHeight, totalPanelHeight, dropDistance } = getSingleStationTileMetrics();
+            const currentPanelWidth = newsAsidePanel.getBoundingClientRect().width;
+            expandedNewsHeightPx = totalPanelHeight;
+
+            newsAsidePanel.style.width = `${currentPanelWidth}px`;
+            newsAsidePanel.style.minHeight = `${totalPanelHeight}px`;
+            newsCardContainer.style.flex = 'none';
+            newsCardContainer.style.height = `${totalPanelHeight}px`;
+
+            const anim = newsCardContainer.animate([
+                {
+                    offset: 0,
+                    height: `${totalPanelHeight}px`,
+                    transform: 'perspective(900px) translateY(0px) rotateX(0deg) translateX(0px) scale(1)',
+                    opacity: 1
+                },
+                {
+                    offset: 0.32,
+                    height: `${tileHeight}px`,
+                    transform: 'perspective(900px) translateY(0px) rotateX(0deg) translateX(0px) scale(1)',
+                    opacity: 1
+                },
+                {
+                    offset: 0.56,
+                    height: `${tileHeight}px`,
+                    transform: `perspective(900px) translateY(${dropDistance}px) rotateX(0deg) translateX(0px) scale(1)`,
+                    opacity: 1
+                },
+                {
+                    offset: 0.78,
+                    height: `${tileHeight}px`,
+                    transform: `perspective(900px) translateY(${dropDistance}px) rotateX(360deg) translateX(0px) scale(1.03)`,
+                    opacity: 1
+                },
+                {
+                    offset: 1,
+                    height: `${tileHeight}px`,
+                    transform: `perspective(900px) translateY(${dropDistance}px) rotateX(360deg) translateX(-115%) scale(0.88)`,
+                    opacity: 0
+                }
+            ], {
+                duration: 680,
+                easing: 'cubic-bezier(0.32, 0.05, 0.25, 1)',
+                fill: 'forwards'
+            });
+
+            anim.onfinish = () => {
+                newsCardContainer.classList.add('news-tucked');
+                newsCardContainer.style.transform = `perspective(900px) translateY(${dropDistance}px) rotateX(360deg) translateX(-115%) scale(0.88)`;
+                newsCardContainer.style.opacity = '0';
+                anim.cancel();
+
+                // Płynne zwężenie pustego miejsca po prawej, aby stacje + karta środkowa wyśrodkowały się na ekranie
+                const isDesktop = window.innerWidth >= 1024;
+                if (isDesktop) {
+                    newsAsidePanel.style.width = '0px';
+                    newsAsidePanel.style.marginLeft = '-1.25rem';
+                    setTimeout(() => {
+                        newsAsidePanel.style.minHeight = '0px';
+                        isNewsTucked = true;
+                        isNewsAnimating = false;
+                        updateNewsToggleButtonAppearance();
+                    }, 430);
+                } else {
+                    newsAsidePanel.style.display = 'none';
+                    isNewsTucked = true;
+                    isNewsAnimating = false;
+                    updateNewsToggleButtonAppearance();
+                }
+            };
+        }
+
+        /**
+         * Odwrotna animacja wyzwalana przyciskiem "Aktualności":
+         * 1. Najpierw stacje po lewej i karta środkowa płynnie przesuwają się w lewo, robiąc miejsce po prawej stronie
+         * 2. Następnie kafelek aktualności wyjeżdża spod środkowej karty, wykonuje obrót powrotny, wraca na górę i rozwija się (0.68s)
+         */
+        function showNewsPanelWithAnimation() {
+            if (isNewsAnimating || !isNewsTucked || !newsCardContainer) return;
+            isNewsAnimating = true;
+
+            const isDesktop = window.innerWidth >= 1024;
+            const targetWidth = isDesktop ? (window.innerWidth >= 1280 ? 410 : 370) : newsAsidePanel.parentElement.getBoundingClientRect().width;
+            const targetHeight = expandedNewsHeightPx || playerCard.getBoundingClientRect().height || 570;
+            const sampleTile = stationsTilesContainer ? stationsTilesContainer.querySelector('.station-tile') : null;
+            const tileHeight = sampleTile ? sampleTile.getBoundingClientRect().height : 74;
+            const dropDistance = Math.max(240, targetHeight - tileHeight);
+
+            const runCardEmergeAnimation = () => {
+                newsCardContainer.classList.remove('news-tucked');
+                newsCardContainer.style.opacity = '1';
+                newsCardContainer.style.flex = 'none';
+                newsCardContainer.style.height = `${tileHeight}px`;
+
+                const anim = newsCardContainer.animate([
+                    {
+                        offset: 0,
+                        height: `${tileHeight}px`,
+                        transform: `perspective(900px) translateY(${dropDistance}px) rotateX(360deg) translateX(-115%) scale(0.88)`,
+                        opacity: 0
+                    },
+                    {
+                        offset: 0.22,
+                        height: `${tileHeight}px`,
+                        transform: `perspective(900px) translateY(${dropDistance}px) rotateX(360deg) translateX(0px) scale(1.03)`,
+                        opacity: 1
+                    },
+                    {
+                        offset: 0.44,
+                        height: `${tileHeight}px`,
+                        transform: `perspective(900px) translateY(${dropDistance}px) rotateX(0deg) translateX(0px) scale(1)`,
+                        opacity: 1
+                    },
+                    {
+                        offset: 0.68,
+                        height: `${tileHeight}px`,
+                        transform: 'perspective(900px) translateY(0px) rotateX(0deg) translateX(0px) scale(1)',
+                        opacity: 1
+                    },
+                    {
+                        offset: 1,
+                        height: `${targetHeight}px`,
+                        transform: 'perspective(900px) translateY(0px) rotateX(0deg) translateX(0px) scale(1)',
+                        opacity: 1
+                    }
+                ], {
+                    duration: 680,
+                    easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+                    fill: 'forwards'
+                });
+
+                anim.onfinish = () => {
+                    isNewsTucked = false;
+                    isNewsAnimating = false;
+                    newsCardContainer.style.transform = '';
+                    newsCardContainer.style.opacity = '';
+                    newsCardContainer.style.height = '';
+                    newsCardContainer.style.flex = '';
+                    newsAsidePanel.style.width = '';
+                    newsAsidePanel.style.marginLeft = '';
+                    newsAsidePanel.style.minHeight = '';
+                    anim.cancel();
+                    updateNewsToggleButtonAppearance();
+                };
+            };
+
+            if (isDesktop) {
+                newsAsidePanel.style.minHeight = `${targetHeight}px`;
+                // Najpierw rozsuwamy układ (stacje + karta środkowa przesuwają się płynnie w lewo)
+                requestAnimationFrame(() => {
+                    newsAsidePanel.style.width = `${targetWidth}px`;
+                    newsAsidePanel.style.marginLeft = '0px';
+                    setTimeout(runCardEmergeAnimation, 420);
+                });
+            } else {
+                newsAsidePanel.style.display = '';
+                runCardEmergeAnimation();
+            }
+        }
+
+        function initRadioPartyNewsWidget() {
+            try {
+                const cachedRaw = localStorage.getItem(NEWS_CACHE_KEY);
+                if (cachedRaw) {
+                    const cached = JSON.parse(cachedRaw);
+                    if (Array.isArray(cached.items) && cached.items.length > 0) {
+                        currentNewsItems = cached.items;
+                        lastKnownTopNewsTitle = cached.items[0].title;
+                    }
+                }
+            } catch (_) {}
+
+            renderNewsItems(currentNewsItems);
+            fetchLatestRadioPartyNews(false);
+
+            // Automatyczne odświeżanie co 5 minut, aby wykrywać nowe wpisy na radioparty.pl
+            setInterval(() => {
+                fetchLatestRadioPartyNews(false);
+            }, 5 * 60 * 1000);
+
+            if (refreshNewsBtn) {
+                refreshNewsBtn.addEventListener('click', () => {
+                    fetchLatestRadioPartyNews(true);
+                });
+            }
+
+            if (collapseNewsBtn) {
+                collapseNewsBtn.addEventListener('click', () => {
+                    hideNewsPanelWithAnimation();
+                });
+            }
+
+            if (toggleNewsPanelBtn) {
+                toggleNewsPanelBtn.addEventListener('click', () => {
+                    if (isNewsTucked) {
+                        showNewsPanelWithAnimation();
+                    } else {
+                        hideNewsPanelWithAnimation();
+                    }
+                });
+            }
+        }
+
+        /**
+         * Obsługa kafelka "Czytaj": wyłanianie się spod dolnej krawędzi głównego panelu
+         * z obrotem 3D z góry na dół oraz chowanie z powrotem pod dolną krawędź karty
+         */
+        let isAboutOpen = false;
+        let isAboutAnimating = false;
+
+        function updateAboutButtonAppearance() {
+            if (!toggleAboutTileBtn || !toggleAboutBtnDot) return;
+            if (isAboutOpen) {
+                toggleAboutTileBtn.classList.remove('bg-emerald-900/85', 'text-emerald-100', 'border-emerald-400/50');
+                toggleAboutTileBtn.classList.add('bg-emerald-500/30', 'text-white', 'border-emerald-300/85', 'shadow-[0_0_14px_rgba(16,185,129,0.45)]');
+                toggleAboutBtnDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse';
+            } else {
+                toggleAboutTileBtn.classList.add('bg-emerald-900/85', 'text-emerald-100', 'border-emerald-400/50');
+                toggleAboutTileBtn.classList.remove('bg-emerald-500/30', 'text-white', 'border-emerald-300/85', 'shadow-[0_0_14px_rgba(16,185,129,0.45)]');
+                toggleAboutBtnDot.className = 'w-1.5 h-1.5 rounded-full bg-sky-400/90';
+            }
+        }
+
+        function toggleAboutInfoTile() {
+            if (isAboutAnimating || !aboutDrawerSlot || !aboutInfoTile) return;
+            isAboutAnimating = true;
+
+            const aboutTitleEl = document.getElementById('aboutMainTitleText');
+            if (aboutTitleEl) {
+                aboutTitleEl.textContent = 'Nieoficjalny fanowski interaktywny odtwarzacz RadioParty.pl';
+            }
+
+            if (!isAboutOpen) {
+                aboutDrawerSlot.classList.remove('about-above-shadow');
+                aboutDrawerSlot.classList.add('about-open');
+                aboutInfoTile.classList.remove('about-tucked', 'about-tuck-anim');
+                aboutInfoTile.classList.add('about-emerge-anim');
+                aboutInfoTile.addEventListener('animationend', () => {
+                    aboutInfoTile.classList.remove('about-emerge-anim');
+                    aboutDrawerSlot.classList.add('about-above-shadow');
+                    isAboutOpen = true;
+                    isAboutAnimating = false;
+                    updateAboutButtonAppearance();
+                }, { once: true });
+            } else {
+                aboutDrawerSlot.classList.remove('about-above-shadow');
+                aboutInfoTile.classList.remove('about-emerge-anim');
+                aboutInfoTile.classList.add('about-tuck-anim');
+                aboutInfoTile.addEventListener('animationend', () => {
+                    aboutInfoTile.classList.remove('about-tuck-anim');
+                    aboutInfoTile.classList.add('about-tucked');
+                    aboutDrawerSlot.classList.remove('about-open');
+                    isAboutOpen = false;
+                    isAboutAnimating = false;
+                    updateAboutButtonAppearance();
+                }, { once: true });
+            }
+        }
+
+        if (toggleAboutTileBtn) {
+            toggleAboutTileBtn.addEventListener('click', toggleAboutInfoTile);
+        }
+
+        let currentChannelIndex = 0;
+        let tuckedChannelIndex = null;
+        let currentStreamIndex = 0;
+        let isPlaying = false;
+        let hasEverStarted = false;
+        let lastVolume = 0.85;
+        let circleGlowMultiplier = 0.75;
+        let cardGlowMultiplier = 0.75;
+        let circleGlowSizeMultiplier = 1.0;
+        let cardGlowSizeMultiplier = 1.0;
+        let glowHex = '#10b981';
+        let glowRgb = { r: 16, g: 185, b: 129 };
+
+        // Zapis bieżących ustawień w pamięci przeglądarki
+        function saveSettingsToStorage() {
+            const payload = {
+                channelIndex: currentChannelIndex,
+                volume: lastVolume,
+                muted: audio.muted,
+                circleGlow: circleGlowMultiplier,
+                cardGlow: cardGlowMultiplier,
+                circleGlowSize: circleGlowSizeMultiplier,
+                cardGlowSize: cardGlowSizeMultiplier,
+                glowColor: glowHex
+            };
+            const serialized = JSON.stringify(payload);
+            try {
+                localStorage.setItem(STORAGE_KEY, serialized);
+            } catch (_) {}
+            try {
+                window.name = `${STORAGE_KEY}:${serialized}`;
+            } catch (_) {}
+        }
+
+        /**
+         * Renderowanie pionowej listy 6 poziomych kafelków stacji przy lewej krawędzi karty
+         */
+        function renderStationTiles() {
+            stationsTilesContainer.innerHTML = '';
+            RADIOPARTY_CHANNELS.forEach((channel, idx) => {
+                const isActive = idx === currentChannelIndex;
+                const isTucked = idx === tuckedChannelIndex;
+
+                const slotDiv = document.createElement('div');
+                slotDiv.className = 'station-tile-slot flex-1 flex flex-col';
+
+                const tileBtn = document.createElement('button');
+                tileBtn.type = 'button';
+                tileBtn.dataset.channelIdx = String(idx);
+                tileBtn.className = `station-tile relative overflow-hidden w-full flex-1 text-left rounded-2xl px-4 py-3 cursor-pointer flex items-center justify-between gap-3 z-10 ${isActive ? 'active-tile' : ''} ${isTucked ? 'tile-tucked' : ''}`;
+                tileBtn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+
+                const shortDomain = channel.pageUrl.replace('https://', '');
+                const serversCount = channel.streams.length;
+
+                tileBtn.innerHTML = `
+                    <div class="relative z-10 min-w-0 flex-1">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full shrink-0 ${isActive && isPlaying ? 'bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse' : (isActive ? 'bg-emerald-400' : 'bg-emerald-700/70')}"></span>
+                            <span class="font-bold text-sm text-white leading-snug">${channel.subtitle}</span>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-1 pl-4 text-[11px] text-emerald-200/70">
+                            <span>${channel.genre}</span>
+                            <span class="text-emerald-500/50">•</span>
+                            <span class="text-sky-300/90">${channel.bitrate}</span>
+                            <span class="text-emerald-500/50">•</span>
+                            <span class="text-emerald-300/55">${shortDomain} (${serversCount} serw.)</span>
+                        </div>
+                    </div>
+                    <div class="relative z-10 shrink-0 flex flex-col items-end gap-1">
+                        <span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full ${isActive ? 'bg-emerald-500/30 text-emerald-100 border border-emerald-400/50' : 'bg-emerald-900/75 text-emerald-200/75 border border-emerald-400/25'}">
+                            ${isActive ? (isPlaying ? 'GRA TERAZ' : 'WYBRANA') : `#${idx + 1}`}
+                        </span>
+                    </div>
+                `;
+
+                tileBtn.addEventListener('click', () => {
+                    selectChannelAndPlay(idx, true);
+                });
+
+                slotDiv.appendChild(tileBtn);
+                stationsTilesContainer.appendChild(slotDiv);
+            });
+        }
+
+        /**
+         * Wybór stacji, animacja obrotu od dołu do góry + wsunięcia pod główną kartę
+         * oraz odwrócona animacja powrotu poprzednio ukrytego kafelka
+         */
+        function tuckStationTile(index) {
+            const allTiles = stationsTilesContainer.querySelectorAll('.station-tile');
+            const targetTile = allTiles[index];
+            if (!targetTile) return;
+
+            tuckedChannelIndex = index;
+            targetTile.classList.remove('tile-tucked', 'tile-untuck-anim');
+            targetTile.classList.add('active-tile', 'tile-animating', 'tile-tuck-anim');
+            targetTile.addEventListener('animationend', () => {
+                targetTile.classList.remove('tile-animating', 'tile-tuck-anim');
+                if (tuckedChannelIndex === index) {
+                    targetTile.classList.add('tile-tucked');
+                }
+            }, { once: true });
+        }
+
+        function untuckStationTile(index, keepActiveStyle = false) {
+            if (index === null || index === undefined) return;
+            const allTiles = stationsTilesContainer.querySelectorAll('.station-tile');
+            const targetTile = allTiles[index];
+            if (!targetTile) return;
+
+            if (tuckedChannelIndex === index) {
+                tuckedChannelIndex = null;
+            }
+            targetTile.classList.remove('tile-tucked', 'tile-tuck-anim');
+            if (!keepActiveStyle) {
+                targetTile.classList.remove('active-tile');
+            }
+            targetTile.classList.add('tile-animating', 'tile-untuck-anim');
+            targetTile.addEventListener('animationend', () => {
+                targetTile.classList.remove('tile-animating', 'tile-untuck-anim');
+            }, { once: true });
+        }
+
+        function updateTilesStatusBadges(activeIndex, playingState) {
+            const allTiles = stationsTilesContainer.querySelectorAll('.station-tile');
+            allTiles.forEach((tile, i) => {
+                const isCurrent = i === activeIndex;
+                const dot = tile.querySelector('span.rounded-full.shrink-0');
+                const badge = tile.querySelector('span.uppercase');
+                tile.setAttribute('aria-pressed', isCurrent ? 'true' : 'false');
+                tile.classList.toggle('active-tile', isCurrent);
+
+                if (dot) {
+                    dot.className = `w-2 h-2 rounded-full shrink-0 ${isCurrent && playingState ? 'bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse' : (isCurrent ? 'bg-emerald-400' : 'bg-emerald-700/70')}`;
+                }
+                if (badge) {
+                    badge.className = `text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full ${isCurrent ? 'bg-emerald-500/30 text-emerald-100 border border-emerald-400/50' : 'bg-emerald-900/75 text-emerald-200/75 border border-emerald-400/25'}`;
+                    badge.textContent = isCurrent ? (playingState ? 'GRA TERAZ' : 'WYBRANA') : `#${i + 1}`;
+                }
+            });
+        }
+
+        function selectChannelAndPlay(newIndex, animateTileTransition = true) {
+            const total = RADIOPARTY_CHANNELS.length;
+            const normalizedNewIndex = ((newIndex % total) + total) % total;
+            const previousTuckedIndex = tuckedChannelIndex;
+
+            currentChannelIndex = normalizedNewIndex;
+            currentStreamIndex = 0;
+
+            const channel = RADIOPARTY_CHANNELS[currentChannelIndex];
+            channelTitleText.textContent = channel.subtitle;
+            channelCounterBadge.textContent = `${currentChannelIndex + 1} / ${total} • LIVE`;
+            document.title = `RadioParty.pl — ${channel.name}`;
+            officialChannelLink.href = channel.pageUrl;
+            officialChannelText.textContent = `Oficjalna strona: ${channel.pageUrl.replace('https://', '')}`;
+
+            hasEverStarted = true;
+            isPlaying = true;
+            updateToggleBtnUI(true);
+            useFallbackPulse = false;
+
+            if (animateTileTransition) {
+                updateTilesStatusBadges(normalizedNewIndex, true);
+
+                // 1. Poprzednio schowany kafelek wraca z odwróconą animacją na swoje miejsce
+                if (previousTuckedIndex !== null && previousTuckedIndex !== normalizedNewIndex) {
+                    untuckStationTile(previousTuckedIndex, false);
+                }
+
+                // 2. Nowo kliknięty kafelek obraca się wokół własnej osi (od dołu do góry) i wsuwa pod główną kartę
+                tuckStationTile(normalizedNewIndex);
+            } else {
+                tuckedChannelIndex = normalizedNewIndex;
+                renderStationTiles();
+            }
+
+            saveSettingsToStorage();
+            connectAndPlay(0, true);
+        }
+
+        // Aktualizacja samego wyglądu wybranej stacji przy wczytywaniu z pamięci (bez autostartu dźwięku)
+        function applySavedChannelMetadata(newIndex) {
+            const total = RADIOPARTY_CHANNELS.length;
+            currentChannelIndex = ((newIndex % total) + total) % total;
+            const channel = RADIOPARTY_CHANNELS[currentChannelIndex];
+            channelTitleText.textContent = channel.subtitle;
+            channelCounterBadge.textContent = `${currentChannelIndex + 1} / ${total} • LIVE`;
+            document.title = `RadioParty.pl — ${channel.name}`;
+            officialChannelLink.href = channel.pageUrl;
+            officialChannelText.textContent = `Oficjalna strona: ${channel.pageUrl.replace('https://', '')}`;
+            setStatus('Gotowy do odbioru', `Wybrano: ${channel.name}. Kliknij kafelek stacji, aby rozpocząć.`, 'idle');
+        }
+
+        function applyGlowColor(hex) {
+            const clean = hex.replace('#', '');
+            if (clean.length === 6) {
+                glowHex = `#${clean}`;
+                glowRgb = {
+                    r: parseInt(clean.substring(0, 2), 16),
+                    g: parseInt(clean.substring(2, 4), 16),
+                    b: parseInt(clean.substring(4, 6), 16)
+                };
+                document.documentElement.style.setProperty('--glow-hex', glowHex);
+                document.documentElement.style.setProperty('--glow-rgb', `${glowRgb.r}, ${glowRgb.g}, ${glowRgb.b}`);
+                glowColorPicker.value = glowHex;
+                avatarRing.style.background = `radial-gradient(circle, rgba(${glowRgb.r}, ${glowRgb.g}, ${glowRgb.b}, 0.65) 0%, transparent 72%)`;
+
+                glowSwatches.forEach(btn => {
+                    const isMatch = btn.dataset.glowColor.toLowerCase() === glowHex.toLowerCase();
+                    btn.classList.toggle('border-2', isMatch);
+                    btn.classList.toggle('border-white', isMatch);
+                    btn.classList.toggle('border-white/30', !isMatch);
+                    btn.style.boxShadow = isMatch ? `0 0 8px ${glowHex}` : 'none';
+                });
+            }
+        }
+
+        // Wczytanie zapamiętanych ustawień przy starcie aplikacji
+        function loadSettingsFromStorage() {
+            let raw = null;
+            try {
+                raw = localStorage.getItem(STORAGE_KEY);
+            } catch (_) {
+                raw = null;
+            }
+
+            if (!raw && typeof window.name === 'string' && window.name.startsWith(`${STORAGE_KEY}:`)) {
+                raw = window.name.slice(STORAGE_KEY.length + 1);
+            }
+
+            if (!raw) {
+                applyGlowColor(glowHex);
+                renderStationTiles();
+                return;
+            }
+
+            try {
+                const saved = JSON.parse(raw);
+
+                if (typeof saved.circleGlow === 'number') {
+                    circleGlowMultiplier = saved.circleGlow;
+                    circleGlowSlider.value = circleGlowMultiplier;
+                    circleGlowPercent.textContent = `${Math.round((circleGlowMultiplier / 0.75) * 75)}%`;
+                }
+
+                if (typeof saved.cardGlow === 'number') {
+                    cardGlowMultiplier = saved.cardGlow;
+                    cardGlowSlider.value = cardGlowMultiplier;
+                    cardGlowPercent.textContent = `${Math.round((cardGlowMultiplier / 0.75) * 75)}%`;
+                }
+
+                if (typeof saved.circleGlowSize === 'number') {
+                    circleGlowSizeMultiplier = saved.circleGlowSize;
+                    circleGlowSizeSlider.value = circleGlowSizeMultiplier;
+                    circleGlowSizePercent.textContent = `${Math.round(circleGlowSizeMultiplier * 100)}%`;
+                }
+
+                if (typeof saved.cardGlowSize === 'number') {
+                    cardGlowSizeMultiplier = saved.cardGlowSize;
+                    cardGlowSizeSlider.value = cardGlowSizeMultiplier;
+                    cardGlowSizePercent.textContent = `${Math.round(cardGlowSizeMultiplier * 100)}%`;
+                }
+
+                if (typeof saved.glowColor === 'string') {
+                    applyGlowColor(saved.glowColor);
+                } else {
+                    applyGlowColor(glowHex);
+                }
+
+                if (typeof saved.volume === 'number' && saved.volume > 0) {
+                    lastVolume = Math.min(1, Math.max(0, saved.volume));
+                }
+
+                if (saved.muted) {
+                    audio.muted = true;
+                    audio.volume = lastVolume;
+                    volumeSlider.value = 0;
+                    volumePercent.textContent = '0%';
+                    updateVolumeIcons(true);
+                } else {
+                    audio.muted = false;
+                    audio.volume = lastVolume;
+                    volumeSlider.value = lastVolume;
+                    volumePercent.textContent = `${Math.round(lastVolume * 100)}%`;
+                    updateVolumeIcons(false);
+                }
+
+                if (typeof saved.channelIndex === 'number') {
+                    applySavedChannelMetadata(saved.channelIndex);
+                }
+            } catch (_) {
+                applyGlowColor(glowHex);
+            }
+            renderStationTiles();
+        }
+
+        let audioCtx = null;
+        let analyser = null;
+        let sourceNode = null;
+        let freqData = null;
+        let isAudioAnalyserReady = false;
+        let useFallbackPulse = false;
+        let bassAnimFrameId = null;
+        let smoothedBass = 0;
+        let runningBassAvg = 0.35;
+
+        audio.volume = lastVolume;
+        updateToggleBtnUI(false);
+        loadSettingsFromStorage();
+        initRadioPartyNewsWidget();
+
+        function setStatus(badgeText, descText, state = 'idle') {
+            statusBadge.textContent = badgeText;
+            statusDescription.textContent = descText;
+
+            liveDot.className = 'w-2.5 h-2.5 rounded-full transition-colors duration-300';
+            if (state === 'live') {
+                liveDot.classList.add('bg-emerald-400', 'shadow-[0_0_10px_#34d399]', 'animate-pulse');
+                statusBadge.className = 'text-xs font-semibold tracking-wider uppercase text-emerald-300';
+            } else if (state === 'connecting') {
+                liveDot.classList.add('bg-amber-400', 'animate-ping');
+                statusBadge.className = 'text-xs font-semibold tracking-wider uppercase text-amber-300';
+            } else if (state === 'error') {
+                liveDot.classList.add('bg-red-500');
+                statusBadge.className = 'text-xs font-semibold tracking-wider uppercase text-red-300';
+            } else {
+                liveDot.classList.add('bg-emerald-700');
+                statusBadge.className = 'text-xs font-semibold tracking-wider uppercase text-emerald-300/80';
+            }
+        }
+
+        function initAudioAnalyser() {
+            if (isAudioAnalyserReady || useFallbackPulse) return;
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 2048;
+                analyser.smoothingTimeConstant = 0.65;
+
+                sourceNode = audioCtx.createMediaElementSource(audio);
+                sourceNode.connect(analyser);
+                analyser.connect(audioCtx.destination);
+
+                freqData = new Uint8Array(analyser.frequencyBinCount);
+                isAudioAnalyserReady = true;
+            } catch (err) {
+                console.warn("Analizator Web Audio niedostępny, przełączam na tryb bezpośredni:", err);
+                useFallbackPulse = true;
+            }
+        }
+
+        async function connectAndPlay(streamIdx = 0, allowCors = true) {
+            if (!isPlaying) return;
+
+            const activeChannel = RADIOPARTY_CHANNELS[currentChannelIndex];
+            const endpoints = activeChannel.streams;
+            currentStreamIndex = streamIdx % endpoints.length;
+            const streamUrl = `${endpoints[currentStreamIndex]}?nocache=${Date.now()}`;
+
+            setStatus('Łączenie...', `Nawiązywanie połączenia: ${activeChannel.name} (serwer ${currentStreamIndex + 1})...`, 'connecting');
+
+            audio.pause();
+            if (allowCors) {
+                audio.setAttribute('crossorigin', 'anonymous');
+                initAudioAnalyser();
+                if (audioCtx && audioCtx.state === 'suspended') {
+                    await audioCtx.resume();
+                }
+            } else {
+                audio.removeAttribute('crossorigin');
+                useFallbackPulse = true;
+            }
+
+            audio.src = streamUrl;
+            audio.load();
+
+            try {
+                await audio.play();
+                setStatus('Na żywo • ON AIR', `Słuchasz transmisji na żywo z RadioParty.pl — ${activeChannel.name}.`, 'live');
+                startBassReactiveLoop();
+            } catch (err) {
+                if (!isPlaying) return;
+                console.warn(`Błąd połączenia ze strumieniem ${streamUrl} (CORS=${allowCors}):`, err);
+
+                if (allowCors) {
+                    connectAndPlay(currentStreamIndex, false);
+                } else if (streamIdx + 1 < endpoints.length * 2) {
+                    connectAndPlay(streamIdx + 1, false);
+                } else {
+                    isPlaying = false;
+                    updateToggleBtnUI(false);
+                    renderStationTiles();
+                    setStatus('Brak połączenia', `Nie udało się połączyć z kanałem ${activeChannel.name}. Wybierz inny kafelek.`, 'error');
+                }
+            }
+        }
+
+        /**
+         * Aktualizacja stanu jedynego przycisku: PAUZA (gdy gra) / WZNÓW (gdy wstrzymano)
+         */
+        function updateToggleBtnUI(playing) {
+            if (!hasEverStarted && !playing) {
+                pauseBarsIcon.classList.add('hidden');
+                playTriangleIcon.classList.remove('hidden');
+                togglePlayLabel.textContent = 'Wznów';
+                togglePlayBtn.classList.add('from-[#174a3b]', 'to-[#11392d]', 'text-emerald-100', 'border', 'border-emerald-400/35');
+                togglePlayBtn.classList.remove('from-emerald-500', 'to-teal-600', 'hover:from-emerald-400', 'hover:to-teal-500', 'text-emerald-950');
+                return;
+            }
+
+            if (playing) {
+                playTriangleIcon.classList.add('hidden');
+                pauseBarsIcon.classList.remove('hidden');
+                togglePlayLabel.textContent = 'Pauza';
+                togglePlayBtn.classList.remove('from-emerald-500', 'to-teal-600', 'hover:from-emerald-400', 'hover:to-teal-500', 'text-emerald-950', 'border-emerald-400/35');
+                togglePlayBtn.classList.add('from-[#174a3b]', 'to-[#11392d]', 'hover:from-[#1d5c49]', 'hover:to-[#164738]', 'text-emerald-100', 'border', 'border-emerald-400/50');
+            } else {
+                pauseBarsIcon.classList.add('hidden');
+                playTriangleIcon.classList.remove('hidden');
+                togglePlayLabel.textContent = 'Wznów';
+                togglePlayBtn.classList.add('from-emerald-500', 'to-teal-600', 'hover:from-emerald-400', 'hover:to-teal-500', 'text-emerald-950');
+                togglePlayBtn.classList.remove('from-[#174a3b]', 'to-[#11392d]', 'hover:from-[#1d5c49]', 'hover:to-[#164738]', 'text-emerald-100', 'border-emerald-400/50', 'border-emerald-400/35');
+            }
+        }
+
+        function resumeRadio() {
+            if (isPlaying) return;
+            if (!hasEverStarted) {
+                selectChannelAndPlay(currentChannelIndex, true);
+                return;
+            }
+            isPlaying = true;
+            updateToggleBtnUI(true);
+            useFallbackPulse = false;
+            updateTilesStatusBadges(currentChannelIndex, true);
+            tuckStationTile(currentChannelIndex);
+            connectAndPlay(0, true);
+        }
+
+        function pauseRadio() {
+            isPlaying = false;
+            audio.pause();
+            audio.removeAttribute('src');
+            audio.load();
+
+            updateToggleBtnUI(false);
+            updateTilesStatusBadges(currentChannelIndex, false);
+            untuckStationTile(currentChannelIndex, true);
+            setStatus('Wstrzymano', 'Transmisja wstrzymana. Naciśnij WZNÓW lub kliknij kafelek stacji.', 'idle');
+        }
+
+        /**
+         * Fala uderzeniowa ze słupków 3D wokół przycisku Pauza/Wznów
+         */
+        let shockwaveStartTime = 0;
+        let isShockwaveActive = false;
+        const SHOCKWAVE_DURATION = 780;
+        const MAX_WAVE_RADIUS = 26;
+
+        function triggerButtonShockwave() {
+            shockwaveStartTime = performance.now();
+            if (!isShockwaveActive) {
+                isShockwaveActive = true;
+                requestAnimationFrame(renderButtonShockwave);
+            }
+        }
+
+        function renderButtonShockwave(now) {
+            const elapsed = now - shockwaveStartTime;
+            const progress = Math.min(1, elapsed / SHOCKWAVE_DURATION);
+
+            const wrapper = shockwaveCanvas.parentElement;
+            const wrapRect = wrapper.getBoundingClientRect();
+            const btnRect = togglePlayBtn.getBoundingClientRect();
+
+            const pad = 28;
+            const visualVerticalOffset = 9;
+            const w = wrapRect.width;
+            const h = btnRect.height + pad * 2;
+            shockwaveCanvas.style.top = `${-pad + visualVerticalOffset}px`;
+            shockwaveCanvas.style.height = `${h}px`;
+
+            const dpr = window.devicePixelRatio || 1;
+            if (shockwaveCanvas.width !== Math.round(w * dpr) || shockwaveCanvas.height !== Math.round(h * dpr)) {
+                shockwaveCanvas.width = Math.round(w * dpr);
+                shockwaveCanvas.height = Math.round(h * dpr);
+            }
+
+            shockwaveCtx.save();
+            shockwaveCtx.scale(dpr, dpr);
+            shockwaveCtx.clearRect(0, 0, w, h);
+
+            if (progress < 1) {
+                const bx = btnRect.left - wrapRect.left;
+                const by = (btnRect.top - wrapRect.top) + pad;
+                const bw = btnRect.width;
+                const bh = btnRect.height;
+                const br = 16;
+
+                const waveFront = progress * MAX_WAVE_RADIUS;
+                const waveWidth = 13;
+                const globalFade = Math.sin(progress * Math.PI);
+
+                const btnCenterX = bx + bw * 0.5;
+                const btnCenterY = by + bh * 0.5;
+                const tileStep = 8;
+                const tileSize = 6.6;
+
+                const colsHalf = Math.ceil((bw * 0.5 + MAX_WAVE_RADIUS) / tileStep);
+                const rowsHalf = Math.ceil((bh * 0.5 + MAX_WAVE_RADIUS) / tileStep);
+
+                for (let r = -rowsHalf; r <= rowsHalf; r++) {
+                    const cy = btnCenterY + r * tileStep;
+                    const gy = cy - tileSize * 0.5;
+                    if (gy < 2 || gy + tileSize > h - 2) continue;
+
+                    for (let c = -colsHalf; c <= colsHalf; c++) {
+                        const cx = btnCenterX + c * tileStep;
+                        const gx = cx - tileSize * 0.5;
+                        if (gx < 4 || gx + tileSize > w - 4) continue;
+
+                        const halfW = bw * 0.5 - br;
+                        const halfH = bh * 0.5 - br;
+                        const dx = Math.abs(cx - btnCenterX) - halfW;
+                        const dy = Math.abs(cy - btnCenterY) - halfH;
+                        const distToButton = Math.hypot(Math.max(dx, 0), Math.max(dy, 0)) + Math.min(Math.max(dx, dy), 0) - br;
+
+                        if (distToButton < -2 || distToButton > MAX_WAVE_RADIUS) continue;
+
+                        const distFromWave = Math.abs(distToButton - waveFront);
+                        if (distFromWave >= waveWidth) continue;
+
+                        const waveProfile = Math.cos((distFromWave / waveWidth) * (Math.PI * 0.5));
+                        const pistonLift = Math.pow(waveProfile, 1.8) * 11 * globalFade;
+
+                        if (pistonLift <= 0.15) continue;
+
+                        const topX = gx;
+                        const topY = gy - pistonLift;
+                        const depth = pistonLift;
+                        const liftRatio = Math.min(1, pistonLift / 9.5);
+
+                        shockwaveCtx.fillStyle = `rgba(2, 9, 7, ${(0.75 * liftRatio).toFixed(2)})`;
+                        shockwaveCtx.fillRect(gx - 0.5, gy - 0.5, tileSize + 1, tileSize + 1);
+
+                        shockwaveCtx.fillStyle = `rgba(7, 30, 23, ${(0.96 * liftRatio).toFixed(2)})`;
+                        shockwaveCtx.fillRect(topX, topY + tileSize, tileSize, depth);
+
+                        shockwaveCtx.beginPath();
+                        shockwaveCtx.moveTo(topX + tileSize, topY);
+                        shockwaveCtx.lineTo(topX + tileSize + 2.2, topY + 1.5);
+                        shockwaveCtx.lineTo(topX + tileSize + 2.2, topY + tileSize + depth);
+                        shockwaveCtx.lineTo(topX + tileSize, topY + tileSize + depth);
+                        shockwaveCtx.closePath();
+                        shockwaveCtx.fillStyle = `rgba(4, 18, 14, ${(0.95 * liftRatio).toFixed(2)})`;
+                        shockwaveCtx.fill();
+
+                        shockwaveCtx.fillStyle = `rgba(13, 44, 35, ${(0.98 * liftRatio).toFixed(2)})`;
+                        shockwaveCtx.fillRect(topX, topY, tileSize, tileSize);
+
+                        shockwaveCtx.strokeStyle = `rgba(52, 211, 153, ${(0.45 * liftRatio).toFixed(2)})`;
+                        shockwaveCtx.lineWidth = 0.8;
+                        shockwaveCtx.strokeRect(topX, topY, tileSize, tileSize);
+                    }
+                }
+
+                shockwaveCtx.restore();
+                requestAnimationFrame(renderButtonShockwave);
+            } else {
+                shockwaveCtx.restore();
+                isShockwaveActive = false;
+            }
+        }
+
+        togglePlayBtn.addEventListener('click', () => {
+            triggerButtonShockwave();
+            if (isPlaying) {
+                pauseRadio();
+            } else {
+                resumeRadio();
+            }
+        });
+
+        audio.addEventListener('error', () => {
+            if (isPlaying) {
+                const nextIdx = currentStreamIndex + 1;
+                connectAndPlay(nextIdx, !useFallbackPulse);
+            }
+        });
+
+        function startBassReactiveLoop() {
+            if (bassAnimFrameId) cancelAnimationFrame(bassAnimFrameId);
+
+            function updateVisuals() {
+                bassAnimFrameId = requestAnimationFrame(updateVisuals);
+                const { r, g, b } = glowRgb;
+
+                if (!isPlaying) {
+                    smoothedBass += (0 - smoothedBass) * 0.15;
+                    runningBassAvg = 0.35;
+                    onAirCircle.style.transform = 'scale(1)';
+                    onAirCircle.style.boxShadow = circleGlowMultiplier > 0.01
+                        ? `0 0 ${Math.round(18 * circleGlowMultiplier * circleGlowSizeMultiplier)}px rgba(${r}, ${g}, ${b}, 0.28), inset 0 2px 4px rgba(0,0,0,0.4)`
+                        : 'inset 0 2px 4px rgba(0,0,0,0.4)';
+                    onAirCircle.style.borderColor = `rgba(${r}, ${g}, ${b}, 0.45)`;
+                    avatarRing.style.opacity = '0';
+                    avatarRing.style.transform = `scale(${(0.85 + 0.25 * circleGlowSizeMultiplier).toFixed(2)})`;
+
+                    playerCard.style.borderColor = `rgba(${r}, ${g}, ${b}, 0.28)`;
+                    playerCard.style.boxShadow = cardGlowMultiplier > 0.01
+                        ? `0 24px 48px -10px rgba(2, 12, 9, 0.88), 0 8px 20px -4px rgba(1, 8, 6, 0.78), 0 0 0 1px rgba(3, 18, 14, 0.75), 0 0 ${Math.round(28 * cardGlowMultiplier * cardGlowSizeMultiplier)}px rgba(${r}, ${g}, ${b}, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.12)`
+                        : '0 24px 48px -10px rgba(2, 12, 9, 0.88), 0 8px 20px -4px rgba(1, 8, 6, 0.78), 0 0 0 1px rgba(3, 18, 14, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.12)';
+                    return;
+                }
+
+                let pulseImpact = 0;
+                if (isAudioAnalyserReady && !useFallbackPulse && freqData) {
+                    analyser.getByteFrequencyData(freqData);
+                    let sum = 0;
+                    const startBin = 1;
+                    const endBin = 6;
+                    for (let i = startBin; i <= endBin; i++) {
+                        sum += freqData[i] / 255;
+                    }
+                    const currentEnergy = sum / (endBin - startBin + 1);
+
+                    if (currentEnergy === 0 && !audio.paused && audio.readyState >= 3) {
+                        const beatPhase = (performance.now() / 1000) * (128 / 60);
+                        const beatFrac = beatPhase - Math.floor(beatPhase);
+                        pulseImpact = Math.pow(Math.max(0, 1 - beatFrac * 2.4), 2.2) * 0.85;
+                    } else {
+                        runningBassAvg = runningBassAvg * 0.92 + currentEnergy * 0.08;
+                        const transient = Math.max(0, currentEnergy - runningBassAvg * 0.88);
+                        const normalizedKick = Math.min(1, transient * 4.8);
+                        const basePresence = Math.pow(currentEnergy, 2.2) * 0.35;
+                        pulseImpact = Math.min(1, normalizedKick * 0.85 + basePresence);
+                    }
+                } else if (!audio.paused) {
+                    const beatPhase = (performance.now() / 1000) * (128 / 60);
+                    const beatFrac = beatPhase - Math.floor(beatPhase);
+                    pulseImpact = Math.pow(Math.max(0, 1 - beatFrac * 2.4), 2.2) * 0.85;
+                }
+
+                const speed = pulseImpact > smoothedBass ? 0.55 : 0.18;
+                smoothedBass += (pulseImpact - smoothedBass) * speed;
+
+                onAirCircle.style.transform = 'scale(1)';
+                const cGlow = circleGlowMultiplier;
+                const cSize = circleGlowSizeMultiplier;
+                const innerBlur = Math.round((18 + smoothedBass * 36) * cGlow * cSize);
+                const outerBlur = Math.round((36 + smoothedBass * 68) * cGlow * cSize);
+                const innerAlpha = Math.min(0.95, (0.38 + smoothedBass * 0.55) * Math.min(1.2, cGlow));
+                const outerAlpha = Math.min(0.75, (0.18 + smoothedBass * 0.45) * Math.min(1.2, cGlow));
+
+                onAirCircle.style.borderColor = cGlow > 0.05
+                    ? `rgba(${r}, ${g}, ${b}, ${Math.min(1, 0.45 + smoothedBass * 0.55).toFixed(2)})`
+                    : `rgba(${r}, ${g}, ${b}, 0.35)`;
+                onAirCircle.style.boxShadow = cGlow > 0.01
+                    ? `0 0 ${innerBlur}px rgba(${r}, ${g}, ${b}, ${innerAlpha.toFixed(2)}), 0 0 ${outerBlur}px rgba(${r}, ${g}, ${b}, ${outerAlpha.toFixed(2)}), inset 0 2px 6px rgba(0,0,0,0.45)`
+                    : 'inset 0 2px 6px rgba(0,0,0,0.45)';
+
+                avatarRing.style.opacity = Math.min(0.9, (0.2 + smoothedBass * 0.7) * Math.min(1.2, cGlow)).toFixed(2);
+                avatarRing.style.transform = `scale(${(0.85 + 0.25 * cSize).toFixed(2)})`;
+
+                const wGlow = cardGlowMultiplier;
+                const wSize = cardGlowSizeMultiplier;
+                const cardNearBlur = Math.round((24 + smoothedBass * 36) * wGlow * wSize);
+                const cardFarBlur = Math.round((52 + smoothedBass * 75) * wGlow * wSize);
+                const cardNearAlpha = Math.min(0.85, (0.24 + smoothedBass * 0.48) * Math.min(1.2, wGlow));
+                const cardFarAlpha = Math.min(0.6, (0.10 + smoothedBass * 0.35) * Math.min(1.2, wGlow));
+
+                playerCard.style.borderColor = wGlow > 0.05
+                    ? `rgba(${r}, ${g}, ${b}, ${Math.min(0.95, 0.28 + smoothedBass * 0.55).toFixed(2)})`
+                    : `rgba(${r}, ${g}, ${b}, 0.22)`;
+                playerCard.style.boxShadow = wGlow > 0.01
+                    ? `0 24px 48px -10px rgba(2, 12, 9, 0.88), 0 8px 20px -4px rgba(1, 8, 6, 0.78), 0 0 0 1px rgba(3, 18, 14, 0.75), 0 0 ${cardNearBlur}px rgba(${r}, ${g}, ${b}, ${cardNearAlpha.toFixed(2)}), 0 0 ${cardFarBlur}px rgba(${r}, ${g}, ${b}, ${cardFarAlpha.toFixed(2)}), inset 0 1px 0 rgba(255, 255, 255, 0.14)`
+                    : '0 24px 48px -10px rgba(2, 12, 9, 0.88), 0 8px 20px -4px rgba(1, 8, 6, 0.78), 0 0 0 1px rgba(3, 18, 14, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.12)';
+            }
+
+            updateVisuals();
+        }
+
+        startBassReactiveLoop();
+
+        volumeSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            audio.volume = val;
+            audio.muted = val === 0;
+            if (val > 0) lastVolume = val;
+            volumePercent.textContent = `${Math.round(val * 100)}%`;
+            updateVolumeIcons(val === 0);
+            saveSettingsToStorage();
+        });
+
+        circleGlowSlider.addEventListener('input', (e) => {
+            circleGlowMultiplier = parseFloat(e.target.value);
+            circleGlowPercent.textContent = `${Math.round((circleGlowMultiplier / 0.75) * 75)}%`;
+            saveSettingsToStorage();
+        });
+
+        cardGlowSlider.addEventListener('input', (e) => {
+            cardGlowMultiplier = parseFloat(e.target.value);
+            cardGlowPercent.textContent = `${Math.round((cardGlowMultiplier / 0.75) * 75)}%`;
+            saveSettingsToStorage();
+        });
+
+        circleGlowSizeSlider.addEventListener('input', (e) => {
+            circleGlowSizeMultiplier = parseFloat(e.target.value);
+            circleGlowSizePercent.textContent = `${Math.round(circleGlowSizeMultiplier * 100)}%`;
+            saveSettingsToStorage();
+        });
+
+        cardGlowSizeSlider.addEventListener('input', (e) => {
+            cardGlowSizeMultiplier = parseFloat(e.target.value);
+            cardGlowSizePercent.textContent = `${Math.round(cardGlowSizeMultiplier * 100)}%`;
+            saveSettingsToStorage();
+        });
+
+        glowColorPicker.addEventListener('input', (e) => {
+            applyGlowColor(e.target.value);
+            saveSettingsToStorage();
+        });
+
+        glowSwatches.forEach(btn => {
+            btn.addEventListener('click', () => {
+                applyGlowColor(btn.dataset.glowColor);
+                saveSettingsToStorage();
+            });
+        });
+
+        function updateVolumeIcons(isMuted) {
+            if (isMuted) {
+                volHighIcon.classList.add('hidden');
+                volMuteIcon.classList.remove('hidden');
+            } else {
+                volHighIcon.classList.remove('hidden');
+                volMuteIcon.classList.add('hidden');
+            }
+        }
+
+        muteBtn.addEventListener('click', () => {
+            if (audio.muted || audio.volume === 0) {
+                audio.muted = false;
+                audio.volume = lastVolume > 0 ? lastVolume : 0.85;
+                volumeSlider.value = audio.volume;
+                volumePercent.textContent = `${Math.round(audio.volume * 100)}%`;
+                updateVolumeIcons(false);
+            } else {
+                audio.muted = true;
+                volumeSlider.value = 0;
+                volumePercent.textContent = '0%';
+                updateVolumeIcons(true);
+            }
+            saveSettingsToStorage();
+        });
+    </script>
+</body>
+</html>
